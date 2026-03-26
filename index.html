@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>♻️ Smart Waste Segregation System</title>
+  <style>
+    /* ===== CSS VARIABLES & RESET ===== */
+    :root {
+      --bg-dark: #0a0f1e;
+      --bg-card: #111827;
+      --bg-card2: #1a2235;
+      --accent-green: #00e676;
+      --accent-blue: #29b6f6;
+      --accent-red: #ff5252;
+      --accent-yellow: #ffd740;
+      --text-primary: #e8f4fd;
+      --text-muted: #7a8fa6;
+      --border: rgba(255,255,255,0.07);
+      --glow-green: 0 0 20px rgba(0,230,118,0.35);
+      --glow-blue: 0 0 20px rgba(41,182,246,0.35);
+      --glow-red: 0 0 20px rgba(255,82,82,0.35);
+      --radius: 16px;
+      --font-display: 'Segoe UI', system-ui, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-display);
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== ANIMATED BACKGROUND ===== */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(0,230,118,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(41,182,246,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(255,82,82,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ===== LAYOUT ===== */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+    /* ===== HEADER ===== */
+    header {
+      padding: 32px 0 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+    }
+    .logo-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+    .logo-icon { font-size: 2.6rem; animation: spin 8s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    header h1 {
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    header p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
+
+    /* ===== TIPS TICKER ===== */
+    .tips-bar {
+      background: linear-gradient(90deg, rgba(0,230,118,0.1), rgba(41,182,246,0.1));
+      border: 1px solid rgba(0,230,118,0.2);
+      border-radius: 40px;
+      padding: 10px 20px;
+      margin-bottom: 28px;
+      display: flex; align-items: center; gap: 10px;
+      overflow: hidden;
+    }
+    .tips-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; color: var(--accent-green); white-space: nowrap; }
+    .tips-text { font-size: 0.88rem; color: var(--text-primary); opacity: 0; transition: opacity 0.6s; }
+    .tips-text.visible { opacity: 1; }
+
+    /* ===== GRID LAYOUT ===== */
+    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+    @media (max-width: 720px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.15); }
+    .card-title {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--text-muted); text-transform: uppercase; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ===== INPUT SECTION ===== */
+    .input-area {
+      border: 2px dashed rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .input-area:hover { border-color: var(--accent-green); background: rgba(0,230,118,0.04); }
+    .input-area.drag-over { border-color: var(--accent-green); background: rgba(0,230,118,0.08); }
+    .upload-icon { font-size: 2.4rem; margin-bottom: 8px; }
+    .upload-hint { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+    #fileInput { display: none; }
+
+    .image-preview {
+      display: none; border-radius: 10px; overflow: hidden;
+      margin-bottom: 14px; position: relative;
+    }
+    .image-preview img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; }
+    .preview-badge {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.6); border-radius: 20px;
+      padding: 3px 10px; font-size: 0.72rem; color: var(--accent-green);
+    }
+
+    .divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+    .divider span { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .text-input-row { display: flex; gap: 10px; }
+    .waste-input {
+      flex: 1; background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; color: var(--text-primary);
+      font-size: 0.95rem; outline: none; transition: border-color 0.3s;
+    }
+    .waste-input:focus { border-color: var(--accent-blue); }
+    .waste-input::placeholder { color: var(--text-muted); }
+
+    .btn {
+      padding: 12px 22px; border-radius: 10px; border: none;
+      font-weight: 700; font-size: 0.9rem; cursor: pointer;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00c853, #00acc1);
+      color: #000; letter-spacing: 0.3px;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,230,118,0.35); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-sm { padding: 8px 14px; font-size: 0.8rem; }
+    .btn-ghost {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-ghost:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+    .classify-btn {
+      width: 100%; margin-top: 16px;
+      padding: 15px; font-size: 1rem;
+      border-radius: 12px;
+    }
+
+    /* ===== RESULT SECTION ===== */
+    .result-box {
+      display: none;
+      animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .result-category {
+      font-size: 1.9rem; font-weight: 900; letter-spacing: -0.5px;
+      margin-bottom: 6px; display: flex; align-items: center; gap: 10px;
+    }
+    .result-name { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px; }
+
+    .confidence-row { margin-bottom: 18px; }
+    .conf-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .conf-bar-bg { background: rgba(255,255,255,0.06); border-radius: 100px; height: 10px; overflow: hidden; }
+    .conf-bar { height: 100%; border-radius: 100px; width: 0; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+    .bin-box {
+      border-radius: 12px; padding: 16px 20px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 16px;
+    }
+    .bin-icon { font-size: 2.2rem; }
+    .bin-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .bin-name { font-size: 1.1rem; font-weight: 800; }
+
+    .instructions-box {
+      background: var(--bg-card2); border-radius: 10px; padding: 14px 16px;
+      font-size: 0.88rem; line-height: 1.7; color: var(--text-primary);
+    }
+    .instructions-box strong { display: block; margin-bottom: 4px; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 0.88rem; }
+
+    /* ===== COLOR THEMES ===== */
+    .bio { --cat-color: var(--accent-green); --cat-bg: rgba(0,230,118,0.1); }
+    .rec { --cat-color: var(--accent-blue); --cat-bg: rgba(41,182,246,0.1); }
+    .haz { --cat-color: var(--accent-red); --cat-bg: rgba(255,82,82,0.1); }
+
+    .bio .result-category, .bio .bin-name { color: var(--accent-green); }
+    .rec .result-category, .rec .bin-name { color: var(--accent-blue); }
+    .haz .result-category, .haz .bin-name { color: var(--accent-red); }
+
+    .bio .conf-bar { background: linear-gradient(90deg, #00c853, #69f0ae); }
+    .rec .conf-bar { background: linear-gradient(90deg, #0288d1, #29b6f6); }
+    .haz .conf-bar { background: linear-gradient(90deg, #c62828, #ff5252); }
+
+    .bio .bin-box { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.2); }
+    .rec .bin-box { background: rgba(41,182,246,0.08); border: 1px solid rgba(41,182,246,0.2); }
+    .haz .bin-box { background: rgba(255,82,82,0.08); border: 1px solid rgba(255,82,82,0.2); }
+
+    /* ===== DASHBOARD ===== */
+    .dashboard { margin-bottom: 28px; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px 16px; text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.5px; }
+    .stat-bio .stat-num { color: var(--accent-green); }
+    .stat-rec .stat-num { color: var(--accent-blue); }
+    .stat-haz .stat-num { color: var(--accent-red); }
+    .stat-total .stat-num { color: var(--accent-yellow); }
+
+    .progress-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+    .prog-row { margin-bottom: 14px; }
+    .prog-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px; }
+    .prog-label span:first-child { color: var(--text-muted); }
+    .prog-bg { background: rgba(255,255,255,0.05); border-radius: 100px; height: 8px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 100px; transition: width 0.8s ease; }
+    .prog-bio { background: linear-gradient(90deg, #00c853, #69f0ae); }
+    .prog-rec { background: linear-gradient(90deg, #0288d1, #29b6f6); }
+    .prog-haz { background: linear-gradient(90deg, #c62828, #ff5252); }
+
+    /* ===== HISTORY ===== */
+    .history-section { margin-bottom: 28px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); text-transform: uppercase; }
+    .history-list { display: flex; flex-direction: column; gap: 10px; }
+    .history-item {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+      animation: slideIn 0.35s ease;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+    .hist-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .hist-dot.bio { background: var(--accent-green); }
+    .hist-dot.rec { background: var(--accent-blue); }
+    .hist-dot.haz { background: var(--accent-red); }
+    .hist-name { font-weight: 600; font-size: 0.92rem; flex: 1; }
+    .hist-cat { font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .hist-cat.bio { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+    .hist-cat.rec { background: rgba(41,182,246,0.12); color: var(--accent-blue); }
+    .hist-cat.haz { background: rgba(255,82,82,0.12); color: var(--accent-red); }
+    .hist-time { font-size: 0.72rem; color: var(--text-muted); }
+    .hist-conf { font-size: 0.78rem; color: var(--text-muted); }
+    .history-empty { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 24px; }
+
+    /* ===== QUICK CHIPS ===== */
+    .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip {
+      padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg-card2);
+      color: var(--text-muted); transition: all 0.2s;
+    }
+    .chip:hover { border-color: var(--accent-green); color: var(--accent-green); background: rgba(0,230,118,0.06); }
+
+    /* ===== TOAST ===== */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 20px;
+      font-size: 0.88rem; color: var(--text-primary);
+      opacity: 0; transform: translateY(16px);
+      transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center; padding: 28px 0;
+      color: var(--text-muted); font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+    }
+    footer span { color: var(--accent-green); }
+  </style>
+</head>
+<body>
+
+<!-- ===== TOAST NOTIFICATION ===== -->
+<div class="toast" id="toast">✅ Item classified!</div>
+
+<div class="container">
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">♻️</div>
+      <h1>Smart Waste Segregation System</h1>
+    </div>
+    <p>AI-powered waste classification for a cleaner planet 🌍</p>
+  </header>
+
+  <!-- ===== ROTATING TIPS BAR ===== -->
+  <div class="tips-bar">
+    <span class="tips-label">💡 ECO TIP</span>
+    <span class="tips-text visible" id="tipText">Loading tip...</span>
+  </div>
+
+  <!-- ===== MAIN GRID (Input + Result) ===== -->
+  <div class="main-grid">
+
+    <!-- LEFT: INPUT CARD -->
+    <div class="card">
+      <div class="card-title">🗑️ Classify Waste Item</div>
+
+      <!-- Image Upload Zone -->
+      <div class="input-area" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📷</div>
+        <div style="font-weight:600;">Drag & Drop or Click to Upload</div>
+        <div class="upload-hint">Supports JPG, PNG, WEBP — image name used for prediction</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)" />
+
+      <!-- Image Preview -->
+      <div class="image-preview" id="imagePreview">
+        <img id="previewImg" src="" alt="Preview" />
+        <span class="preview-badge">📸 Preview</span>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider"><span>OR TYPE ITEM NAME</span></div>
+
+      <!-- Text Input -->
+      <div class="text-input-row">
+        <input class="waste-input" type="text" id="wasteInput"
+          placeholder="e.g. plastic bottle, banana peel, battery…"
+          onkeydown="if(event.key==='Enter') classifyWaste()" />
+        <button class="btn btn-primary btn-sm" onclick="classifyWaste()">🔍</button>
+      </div>
+
+      <!-- Quick Chips -->
+      <div class="quick-chips" id="quickChips">
+        <span class="chip" onclick="quickSelect('banana peel')">🍌 Banana Peel</span>
+        <span class="chip" onclick="quickSelect('plastic bottle')">🍶 Plastic Bottle</span>
+        <span class="chip" onclick="quickSelect('battery')">🔋 Battery</span>
+        <span class="chip" onclick="quickSelect('newspaper')">📰 Newspaper</span>
+        <span class="chip" onclick="quickSelect('food scraps')">🍲 Food Scraps</span>
+        <span class="chip" onclick="quickSelect('metal can')">🥫 Metal Can</span>
+        <span class="chip" onclick="quickSelect('chemical')">⚗️ Chemical</span>
+        <span class="chip" onclick="quickSelect('dry leaves')">🍂 Dry Leaves</span>
+      </div>
+
+      <!-- Classify Button -->
+      <button class="btn btn-primary classify-btn" onclick="classifyWaste()">
+        ⚡ Classify Waste
+      </button>
+    </div>
+
+    <!-- RIGHT: RESULT CARD -->
+    <div class="card">
+      <div class="card-title">📊 Prediction Result</div>
+
+      <!-- Empty State (shown by default) -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🤖</div>
+        <p>Upload an image or type a waste item name to get your classification result.</p>
+      </div>
+
+      <!-- Result Box (hidden until classified) -->
+      <div class="result-box" id="resultBox">
+
+        <!-- Category Name -->
+        <div class="result-category" id="resultCategory">—</div>
+        <div class="result-name" id="resultItemName">Item: —</div>
+
+        <!-- Confidence Bar -->
+        <div class="confidence-row">
+          <div class="conf-label">
+            <span>Confidence Score</span>
+            <span id="confValue">0%</span>
+          </div>
+          <div class="conf-bar-bg">
+            <div class="conf-bar" id="confBar"></div>
+          </div>
+        </div>
+
+        <!-- Bin Box -->
+        <div class="bin-box" id="binBox">
+          <div class="bin-icon" id="binIcon">🗑️</div>
+          <div>
+            <div class="bin-label">Recommended Bin</div>
+            <div class="bin-name" id="binName">—</div>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions-box">
+          <strong>📋 Disposal Instructions</strong>
+          <span id="disposalInstructions">—</span>
+        </div>
+
+      </div><!-- end result-box -->
+    </div>
+
+  </div><!-- end main-grid -->
+
+  <!-- ===== SUMMARY DASHBOARD ===== -->
+  <div class="dashboard">
+    <div class="section-header">
+      <div class="section-title">📈 Summary Dashboard</div>
+    </div>
+    <div class="dash-grid">
+      <div class="stat-card stat-total">
+        <div class="stat-num" id="totalCount">0</div>
+        <div class="stat-label">Total Classified</div>
+      </div>
+      <div class="stat-card stat-bio">
+        <div class="stat-num" id="bioCount">0</div>
+        <div class="stat-label">🟢 Biodegradable</div>
+      </div>
+      <div class="stat-card stat-rec">
+        <div class="stat-num" id="recCount">0</div>
+        <div class="stat-label">🔵 Recyclable</div>
+      </div>
+      <div class="stat-card stat-haz">
+        <div class="stat-num" id="hazCount">0</div>
+        <div class="stat-label">🔴 Hazardous</div>
+      </div>
+    </div>
+
+    <!-- Progress Bars -->
+    <div class="progress-section">
+      <div class="card-title">Category Distribution</div>
+      <div class="prog-row">
+        <div class="prog-label">
+          <span>🟢 Biodegradable</span>
+          <span id="bioPct">0%</span>
+        </div>
+        <div class="prog-bg"><div class="prog-fill prog-bio" id="bioBar" style="width:0%"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-label">
+          <span>🔵 Recyclable</span>
+          <span id="recPct">0%</span>
+        </div>
+        <div class="prog-bg"><div class="prog-fill prog-rec" id="recBar" style="width:0%"></div></div>
+      </div>
+      <div class="prog-row" style="margin-bottom:0">
+        <div class="prog-label">
+          <span>🔴 Hazardous</span>
+          <span id="hazPct">0%</span>
+        </div>
+        <div class="prog-bg"><div class="prog-fill prog-haz" id="hazBar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HISTORY SECTION ===== -->
+  <div class="history-section">
+    <div class="section-header">
+      <div class="section-title">🕒 Classification History</div>
+      <button class="btn btn-ghost btn-sm" onclick="clearHistory()">🗑️ Clear All</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty" id="historyEmpty">No items classified yet. Start by classifying some waste! 🌱</div>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    Built with <span>♻️ love</span> for the planet &nbsp;·&nbsp; Smart Waste Segregation System &nbsp;·&nbsp; Hackathon Demo 2024
+  </footer>
+
+</div><!-- end container -->
+
+<script>
+  /* ===========================================
+     WASTE CLASSIFICATION DATA & LOGIC
+     =========================================== */
+
+  // Keyword mapping: keyword → category key
+  const KEYWORDS = {
+    // Biodegradable keywords
+    food: 'bio', meal: 'bio', lunch: 'bio', dinner: 'bio', breakfast: 'bio',
+    fruit: 'bio', vegetable: 'bio', veggie: 'bio', peel: 'bio', skin: 'bio',
+    banana: 'bio', apple: 'bio', mango: 'bio', orange: 'bio', potato: 'bio',
+    leaf: 'bio', leaves: 'bio', grass: 'bio', plant: 'bio', flower: 'bio',
+    wood: 'bio', sawdust: 'bio', eggshell: 'bio', egg: 'bio',
+    bread: 'bio', rice: 'bio', vegetarian: 'bio', organic: 'bio',
+    compost: 'bio', garden: 'bio', soil: 'bio', straw: 'bio',
+    coffee: 'bio', tea: 'bio', scraps: 'bio', rotten: 'bio',
+
+    // Recyclable keywords
+    plastic: 'rec', bottle: 'rec', bag: 'rec', wrapper: 'rec',
+    paper: 'rec', newspaper: 'rec', cardboard: 'rec', box: 'rec', carton: 'rec',
+    metal: 'rec', can: 'rec', tin: 'rec', aluminium: 'rec', aluminum: 'rec', steel: 'rec',
+    glass: 'rec', jar: 'rec', cup: 'rec', container: 'rec',
+    magazine: 'rec', book: 'rec', notebook: 'rec',
+    foam: 'rec', packaging: 'rec', tray: 'rec',
+    clothes: 'rec', cloth: 'rec', textile: 'rec', fabric: 'rec', shirt: 'rec',
+    rubber: 'rec', tyre: 'rec', tire: 'rec',
+
+    // Hazardous keywords
+    battery: 'haz', batteries: 'haz', cell: 'haz',
+    chemical: 'haz', acid: 'haz', bleach: 'haz', pesticide: 'haz',
+    paint: 'haz', solvent: 'haz', thinner: 'haz', oil: 'haz',
+    medical: 'haz', medicine: 'haz', drug: 'haz', syringe: 'haz', needle: 'haz',
+    electronic: 'haz', e_waste: 'haz', phone: 'haz', laptop: 'haz', circuit: 'haz',
+    bulb: 'haz', lamp: 'haz', fluorescent: 'haz', tube: 'haz',
+    thermometer: 'haz', mercury: 'haz', poison: 'haz', toxic: 'haz',
+    ink: 'haz', toner: 'haz', cartridge: 'haz',
+  };
+
+  // Category display data
+  const CATEGORIES = {
+    bio: {
+      name: 'Biodegradable',
+      emoji: '🌿',
+      binEmoji: '🟢',
+      binLabel: 'Green Bin',
+      color: 'bio',
+      instructions: 'Place in the compost or green bin. You can compost this at home to create nutrient-rich soil. Avoid mixing with non-organic waste.',
+    },
+    rec: {
+      name: 'Recyclable',
+      emoji: '♻️',
+      binEmoji: '🔵',
+      binLabel: 'Blue Bin',
+      color: 'rec',
+      instructions: 'Rinse and clean the item before disposal. Place in the blue recycling bin. Remove caps, labels, or non-recyclable parts if possible.',
+    },
+    haz: {
+      name: 'Hazardous',
+      emoji: '⚠️',
+      binEmoji: '🔴',
+      binLabel: 'Red Bin / Special Facility',
+      color: 'haz',
+      instructions: 'Do NOT mix with regular waste! Take to a certified hazardous waste facility or collection drive. Keep away from children and open flames.',
+    },
+  };
+
+  // Environmental awareness tips
+  const TIPS = [
+    '🌱 Composting food waste reduces methane emissions from landfills by up to 50%.',
+    '♻️ Recycling one aluminium can saves enough energy to run a TV for 3 hours.',
+    '🔋 A single car battery contains enough lead to contaminate 25 acres of soil.',
+    '💧 Recycling paper uses 70% less water than making paper from raw wood pulp.',
+    '🌍 Only 9% of all plastic ever produced has been recycled globally.',
+    '🍃 Organic waste in landfills produces methane — a greenhouse gas 25× stronger than CO₂.',
+    '📦 Cardboard can be recycled up to 7 times before its fibres become too short.',
+    '🧴 Rinsing containers before recycling prevents contamination of entire batches.',
+    '💡 E-waste contains gold, silver, and platinum — recycle electronics, don\'t trash them!',
+    '🌿 Growing a kitchen garden reduces your household food waste by up to 30%.',
+  ];
+
+  /* ===========================================
+     STATE
+     =========================================== */
+  let tipIndex = 0;
+  let currentImageName = '';
+
+  /* ===========================================
+     INIT: Load history & start tips rotation
+     =========================================== */
+  window.onload = function() {
+    renderHistory();
+    updateDashboard();
+    rotateTip();
+    setInterval(rotateTip, 5000); // Rotate tips every 5 seconds
+
+    // Drag-and-drop support
+    const zone = document.getElementById('uploadZone');
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) processFile(file);
+    });
+  };
+
+  /* ===========================================
+     TIP ROTATION
+     =========================================== */
+  function rotateTip() {
+    const el = document.getElementById('tipText');
+    el.classList.remove('visible');
+    setTimeout(() => {
+      el.textContent = TIPS[tipIndex % TIPS.length];
+      el.classList.add('visible');
+      tipIndex++;
+    }, 400);
+  }
+
+  /* ===========================================
+     FILE UPLOAD HANDLER
+     =========================================== */
+  function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (file) processFile(file);
+  }
+
+  function processFile(file) {
+    // Show image preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('previewImg').src = e.target.result;
+      document.getElementById('imagePreview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    // Use filename (without extension) as the input text for classification
+    const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]/g, ' ');
+    document.getElementById('wasteInput').value = name;
+    currentImageName = name;
+    showToast('📸 Image loaded! Click "Classify Waste" to proceed.');
+  }
+
+  /* ===========================================
+     QUICK SELECT CHIPS
+     =========================================== */
+  function quickSelect(value) {
+    document.getElementById('wasteInput').value = value;
+    // Clear image preview when chip is selected
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('previewImg').src = '';
+    classifyWaste();
+  }
+
+  /* ===========================================
+     MAIN CLASSIFICATION FUNCTION
+     =========================================== */
+  function classifyWaste() {
+    const inputEl = document.getElementById('wasteInput');
+    const rawInput = inputEl.value.trim();
+
+    if (!rawInput) {
+      showToast('⚠️ Please enter a waste item name or upload an image first.');
+      inputEl.focus();
+      return;
+    }
+
+    // Lowercase for matching
+    const input = rawInput.toLowerCase();
+    const words = input.split(/[\s,]+/); // Split by space or comma
+
+    // Count keyword hits per category
+    const scores = { bio: 0, rec: 0, haz: 0 };
+    for (const word of words) {
+      if (KEYWORDS[word]) scores[KEYWORDS[word]] += 2;
+      // Partial match for longer words
+      for (const [keyword, cat] of Object.entries(KEYWORDS)) {
+        if (word.includes(keyword) || keyword.includes(word)) scores[cat] += 1;
+      }
+    }
+
+    // Pick category with highest score; default to recyclable if no match
+    let category = 'rec';
+    let maxScore = 0;
+    for (const [cat, score] of Object.entries(scores)) {
+      if (score > maxScore) { maxScore = score; category = cat; }
+    }
+
+    // Simulate confidence: base 70-95%, boosted if strong keyword match
+    const baseConf = 70 + Math.floor(Math.random() * 15); // 70–85%
+    const boost = Math.min(maxScore * 2, 12);
+    const confidence = Math.min(baseConf + boost, 97);
+
+    // Display result
+    showResult(rawInput, category, confidence);
+
+    // Save to history
+    saveToHistory(rawInput, category, confidence);
+
+    // Update dashboard
+    updateDashboard();
+  }
+
+  /* ===========================================
+     DISPLAY RESULT
+     =========================================== */
+  function showResult(itemName, catKey, confidence) {
+    const cat = CATEGORIES[catKey];
+    const resultBox = document.getElementById('resultBox');
+    const emptyState = document.getElementById('emptyState');
+
+    // Hide empty state, show result
+    emptyState.style.display = 'none';
+    resultBox.style.display = 'block';
+
+    // Remove old color class
+    resultBox.classList.remove('bio', 'rec', 'haz');
+    resultBox.classList.add(catKey);
+
+    // Set text content
+    document.getElementById('resultCategory').textContent = cat.emoji + ' ' + cat.name;
+    document.getElementById('resultItemName').textContent = 'Item: ' + capitalize(itemName);
+    document.getElementById('confValue').textContent = confidence + '%';
+    document.getElementById('binIcon').textContent = cat.binEmoji;
+    document.getElementById('binName').textContent = cat.binLabel;
+    document.getElementById('disposalInstructions').textContent = cat.instructions;
+
+    // Animate confidence bar
+    const bar = document.getElementById('confBar');
+    bar.style.width = '0%';
+    setTimeout(() => { bar.style.width = confidence + '%'; }, 100);
+
+    // Re-trigger pop-in animation
+    resultBox.style.animation = 'none';
+    void resultBox.offsetWidth; // Force reflow
+    resultBox.style.animation = 'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+
+    showToast('✅ Classified as ' + cat.name + '!');
+  }
+
+  /* ===========================================
+     HISTORY MANAGEMENT (localStorage)
+     =========================================== */
+  function saveToHistory(itemName, catKey, confidence) {
+    const history = getHistory();
+    const entry = {
+      id: Date.now(),
+      name: itemName,
+      category: catKey,
+      confidence: confidence,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toLocaleDateString(),
+    };
+    history.unshift(entry); // Add to top
+    if (history.length > 50) history.pop(); // Keep max 50 entries
+    localStorage.setItem('wasteHistory', JSON.stringify(history));
+    renderHistory();
+  }
+
+  function getHistory() {
+    try {
+      return JSON.parse(localStorage.getItem('wasteHistory')) || [];
+    } catch { return []; }
+  }
+
+  function renderHistory() {
+    const history = getHistory();
+    const list = document.getElementById('historyList');
+    const empty = document.getElementById('historyEmpty');
+
+    if (history.length === 0) {
+      empty.style.display = 'block';
+      // Remove all items except the empty notice
+      [...list.children].forEach(c => { if (c !== empty) c.remove(); });
+      return;
+    }
+    empty.style.display = 'none';
+
+    // Clear & re-render (show latest 10)
+    list.innerHTML = '';
+    history.slice(0, 10).forEach(item => {
+      const cat = CATEGORIES[item.category];
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div class="hist-dot ${item.category}"></div>
+        <div class="hist-name">${capitalize(item.name)}</div>
+        <span class="hist-conf">${item.confidence}%</span>
+        <span class="hist-cat ${item.category}">${cat.emoji} ${cat.name}</span>
+        <span class="hist-time">${item.time}</span>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  function clearHistory() {
+    if (!confirm('Clear all classification history? This cannot be undone.')) return;
+    localStorage.removeItem('wasteHistory');
+    renderHistory();
+    updateDashboard();
+    showToast('🗑️ History cleared.');
+  }
+
+  /* ===========================================
+     DASHBOARD UPDATE
+     =========================================== */
+  function updateDashboard() {
+    const history = getHistory();
+    const total = history.length;
+    const bio = history.filter(h => h.category === 'bio').length;
+    const rec = history.filter(h => h.category === 'rec').length;
+    const haz = history.filter(h => h.category === 'haz').length;
+
+    document.getElementById('totalCount').textContent = total;
+    document.getElementById('bioCount').textContent = bio;
+    document.getElementById('recCount').textContent = rec;
+    document.getElementById('hazCount').textContent = haz;
+
+    // Progress bars
+    const bioPct = total ? Math.round((bio / total) * 100) : 0;
+    const recPct = total ? Math.round((rec / total) * 100) : 0;
+    const hazPct = total ? Math.round((haz / total) * 100) : 0;
+
+    document.getElementById('bioBar').style.width = bioPct + '%';
+    document.getElementById('recBar').style.width = recPct + '%';
+    document.getElementById('hazBar').style.width = hazPct + '%';
+    document.getElementById('bioPct').textContent = bioPct + '%';
+    document.getElementById('recPct').textContent = recPct + '%';
+    document.getElementById('hazPct').textContent = hazPct + '%';
+  }
+
+  /* ===========================================
+     UTILITY FUNCTIONS
+     =========================================== */
+  function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+  }
+</script>
+</body>
+</html>
